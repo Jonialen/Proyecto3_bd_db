@@ -1,0 +1,11 @@
+services:
+  db:
+    build: .
+    container_name: postgres-mvp
+    environment:
+      POSTGRES_USER: mvpuser
+      POSTGRES_PASSWORD: mvppass
+      POSTGRES_DB: mvpdb
+    ports:
+      - "5432:5432"
+
