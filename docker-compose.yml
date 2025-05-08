@@ -7,5 +7,4 @@ services:
       POSTGRES_PASSWORD: mvppass
       POSTGRES_DB: mvpdb
     ports:
-      - "5432:5432"
-
+      - "5430:5432"
