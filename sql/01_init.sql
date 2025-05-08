@@ -6,8 +6,6 @@ CREATE TABLE ROLES (
     role_name VARCHAR(50) NOT NULL UNIQUE
 );
 
-INSERT INTO ROLES (role_name) VALUES ('admin'), ('client');
-
 CREATE TABLE USERS (
     id_user SERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL,
@@ -17,10 +15,6 @@ CREATE TABLE USERS (
 	id_role INT NOT NULL DEFAULT 2,
 	FOREIGN KEY (id_role) REFERENCES ROLES(id_role)
 );
-INSERT INTO USERS (name, last_name, email, password, id_role) VALUES
-('iris', 'ayala', 'iris.a@example.com', 'pass123', 1);
-
-select * from users;
 
 --(Multivalued attribute)
 CREATE TABLE USER_PHONES (
@@ -39,6 +33,7 @@ CREATE TABLE COURTS (
     id_court SERIAL PRIMARY KEY,
     id_type INT NOT NULL,
     description TEXT NOT NULL ,
+    price_per_hour NUMERIC(8,2) NOT NULL CHECK (price_per_hour >= 0),
     FOREIGN KEY (id_type) REFERENCES COURT_TYPES(id_type)
 );
 
