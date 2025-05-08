@@ -1,0 +1,48 @@
+name: Deploy Database with Docker Compose
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy-db:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: List files (debug)
+        run: ls -la .
+
+      - name: Clean remote DB folder before deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            rm -rf /home/azureuser/proyectoBD/db/*
+
+      - name: Copy DB files via SSH
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "."
+          target: "/home/azureuser/proyectoBD/db"
+          strip_components: 0
+
+      - name: Build and run Docker Compose on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/azureuser/proyectoBD/db
+
+            # Levanta la base de datos
+            docker-compose up -d --build
