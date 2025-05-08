@@ -31,6 +31,16 @@ jobs:
           source: "."
           target: "/home/azureuser/proyectoBD/database"
           strip_components: 1
+    
+      - name: Docker Compose Down
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/azureuser/proyectoBD
+            docker compose down
 
       - name: Build and run Docker Compose on server
         uses: appleboy/ssh-action@v1.0.3
