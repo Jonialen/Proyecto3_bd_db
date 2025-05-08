@@ -23,7 +23,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            rm -rf /home/azureuser/proyectoBD/db/*
+            rm -rf /home/azureuser/proyectoBD/database/*
 
       - name: Copy DB files via SSH
         uses: appleboy/scp-action@v0.1.7
@@ -32,7 +32,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "."
-          target: "/home/azureuser/proyectoBD/db"
+          target: "/home/azureuser/proyectoBD/database"
           strip_components: 0
 
       - name: Build and run Docker Compose on server
@@ -42,7 +42,14 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /home/azureuser/proyectoBD/db
+            cd /home/azureuser/proyectoBD/database
+
+            # Instala docker-compose si no está instalado
+            if ! command -v docker-compose &> /dev/null; then
+              sudo apt update
+              sudo apt install -y docker-compose
+            fi
 
             # Levanta la base de datos
             docker-compose up -d --build
+
