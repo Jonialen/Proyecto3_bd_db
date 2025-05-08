@@ -28,19 +28,9 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "database"
+          source: "."
           target: "/home/azureuser/proyectoBD/database"
           strip_components: 1
-
-      - name: Copy docker-compose.yml via SSH
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker-compose.yml"
-          target: "/home/azureuser/proyectoBD/docker-compose.yml"
-          strip_components: 0
 
       - name: Build and run Docker Compose on server
         uses: appleboy/ssh-action@v1.0.3
