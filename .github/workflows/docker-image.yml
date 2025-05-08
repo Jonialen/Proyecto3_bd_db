@@ -1,4 +1,4 @@
-name: Deploy Database with Docker Compose
+name: Deploy Database
 
 on:
   push:
@@ -13,10 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: List files (debug)
-        run: ls -la .
-
-      - name: Clean remote DB folder before deploy
+      - name: Clean remote database folder before deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -25,14 +22,24 @@ jobs:
           script: |
             rm -rf /home/azureuser/proyectoBD/database/*
 
-      - name: Copy DB files via SSH
+      - name: Copy database files via SSH
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "."
+          source: "database"
           target: "/home/azureuser/proyectoBD/database"
+          strip_components: 1
+
+      - name: Copy docker-compose.yml via SSH
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "docker-compose.yml"
+          target: "/home/azureuser/proyectoBD/docker-compose.yml"
           strip_components: 0
 
       - name: Build and run Docker Compose on server
@@ -42,7 +49,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /home/azureuser/proyectoBD/database
+            cd /home/azureuser/proyectoBD
 
             # Instala docker-compose si no está instalado
             if ! command -v docker-compose &> /dev/null; then
@@ -50,6 +57,6 @@ jobs:
               sudo apt install -y docker-compose
             fi
 
-            # Levanta la base de datos
-            docker-compose up -d --build
+            # Levanta backend y base de datos (si ya está la carpeta backend)
+            docker compose up -d --build
 
