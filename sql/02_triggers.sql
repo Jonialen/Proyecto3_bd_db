@@ -68,27 +68,3 @@ AFTER UPDATE OF status ON BOOKINGS
 FOR EACH ROW
 WHEN (NEW.status = 'cancelled' AND OLD.status <> 'cancelled')
 EXECUTE FUNCTION log_booking_cancellation();
-
-
---4. Trigger para Actualización de Estado de Reservas
-CREATE OR REPLACE FUNCTION update_booking_status()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- Actualiza estado de reservas vencidas
-    UPDATE bookings
-    SET status = 'cancelled'
-    WHERE id_booking IN (
-        SELECT b.id_booking
-        FROM bookings b
-        JOIN booking_details bd ON b.id_booking = bd.id_booking
-        JOIN schedules s ON bd.id_schedule = s.id_schedule
-        WHERE b.status = 'pending'
-        AND s.schedule_date < CURRENT_DATE
-    );
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_update_expired_bookings
-AFTER INSERT OR UPDATE ON bookings
-EXECUTE PROCEDURE update_booking_status();
