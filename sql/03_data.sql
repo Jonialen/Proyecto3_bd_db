@@ -61,7 +61,7 @@ INSERT INTO COURTS (id_type, description, price_per_hour) VALUES
 (5, 'Cancha de vóley techada', 210.00),
 (5, 'Cancha de vóley con suelo de goma', 200.00);
 
--- 6. SCHEDULES
+-- 6. SCHEDULES (200 horarios, rotando canchas y días)
 DO $$
 DECLARE
     i INT;
@@ -71,20 +71,14 @@ DECLARE
     start_time TIME;
     end_time TIME;
 BEGIN
-    -- Obtener el número total de canchas
     SELECT COUNT(*) INTO court_count FROM COURTS;
-
-    FOR i IN 1..100 LOOP
-        -- Rota entre las canchas disponibles
+    FOR i IN 1..200 LOOP
         SELECT id_court INTO court_id
         FROM COURTS
         ORDER BY id_court
         OFFSET ((i - 1) % court_count) LIMIT 1;
 
-        -- Cambia de día cada 8 horarios
         sched_date := '2025-05-10'::date + ((i - 1) / 8);
-
-        -- Horario desde las 8:00, incrementando cada hora
         start_time := (TIME '08:00') + ((i - 1) % 8) * INTERVAL '1 hour';
         end_time := start_time + INTERVAL '1 hour';
 
@@ -93,82 +87,46 @@ BEGIN
     END LOOP;
 END $$;
 
-
 -- 7. PROMOTIONS
 INSERT INTO PROMOTIONS (name, description, discount_percentage, start_date, end_date) VALUES
 ('Promo Tenis', 'Descuento para canchas de tenis', 10.00, '2025-05-01', '2025-05-31'),
 ('Promo Fútbol', 'Descuento para fútbol 5', 15.00, '2025-05-01', '2025-05-31'),
 ('Promo Básquet', 'Descuento para básquetbol', 20.00, '2025-05-01', '2025-05-31');
 
--- 8. BOOKINGS (cada cliente hace 1 reserva, admin no)
+-- 8. BOOKINGS y BOOKING_DETAILS: una reserva por cada horario, rotando usuarios y estados
 DO $$
 DECLARE
-    i INT;              -- id_user
-    j INT;              -- número de reserva por usuario
-    num_reservas INT;   -- cantidad aleatoria de reservas por usuario
+    sched_id INT;
+    user_id INT;
     status_arr TEXT[] := ARRAY['pending', 'confirmed', 'cancelled'];
-BEGIN
-    FOR i IN 2..100 LOOP  -- Asume que el usuario 1 es admin y no reserva
-        -- Generar entre 1 y 3 reservas por usuario
-        num_reservas := FLOOR(RANDOM() * 3 + 1)::INT;
-
-        FOR j IN 1..num_reservas LOOP
-            INSERT INTO BOOKINGS (id_user, booking_date, status)
-            VALUES (
-                i,
-                '2025-05-10'::date + ((i + j - 2) / 8),  -- Varía la fecha ligeramente
-                status_arr[((i + j - 2) % 3) + 1]
-            );
-        END LOOP;
-    END LOOP;
-END $$;
-
-
--- 9. BOOKING_DETAILS
-DO $$
-DECLARE
+    idx INT := 1;
+    sched_date DATE;
     booking_id INT;
-    schedule_ids INT[];
-    i INT := 1;
-    j INT;
-    num_schedules INT;
-    total_schedules INT;
 BEGIN
-    -- Obtener todos los ids de SCHEDULES en una lista aleatoria
-    SELECT ARRAY(SELECT id_schedule FROM SCHEDULES ORDER BY RANDOM()) INTO schedule_ids;
-    total_schedules := array_length(schedule_ids, 1);
+    FOR sched_id IN SELECT id_schedule FROM SCHEDULES ORDER BY id_schedule LOOP
+        user_id := 1 + ((idx - 1) % 99) + 1; -- usuarios 2..100
+        SELECT schedule_date INTO sched_date FROM SCHEDULES WHERE id_schedule = sched_id;
+        INSERT INTO BOOKINGS (id_user, booking_date, status)
+        VALUES (
+            user_id,
+            sched_date,
+            status_arr[((idx - 1) % 3) + 1]
+        )
+        RETURNING id_booking INTO booking_id;
 
-    -- Para cada reserva, asignar entre 1 y 3 horarios, sin repetir ningún horario
-    FOR booking_id IN SELECT id_booking FROM BOOKINGS LOOP
-        -- Si ya no quedan horarios disponibles, salir del ciclo
-        IF i > total_schedules THEN
-            EXIT;
-        END IF;
+        INSERT INTO BOOKING_DETAILS (id_booking, id_schedule)
+        VALUES (booking_id, sched_id);
 
-        -- Cantidad aleatoria de horarios por reserva (entre 1 y 3)
-        num_schedules := FLOOR(RANDOM() * 3 + 1)::INT;
-
-        -- Si quedan menos horarios disponibles que los que queremos asignar, ajustar
-        IF i + num_schedules - 1 > total_schedules THEN
-            num_schedules := total_schedules - i + 1;
-        END IF;
-
-        -- Asignar los horarios disponibles a la reserva
-        FOR j IN 0..(num_schedules - 1) LOOP
-            INSERT INTO BOOKING_DETAILS (id_booking, id_schedule)
-            VALUES (booking_id, schedule_ids[i + j]);
-        END LOOP;
-
-        -- Avanzar el índice para los próximos horarios
-        i := i + num_schedules;
+        idx := idx + 1;
     END LOOP;
 END $$;
+
 -- 10. BOOKING_PROMOTIONS (asigna promociones a algunas reservas)
 DO $$
 DECLARE
     i INT;
 BEGIN
-    FOR i IN 1..99 LOOP
+    FOR i IN 1..200 LOOP
         IF i % 10 = 0 THEN
             INSERT INTO BOOKING_PROMOTIONS (id_booking, id_promotion)
             VALUES (i, ((i - 1) % 3) + 1);
@@ -179,18 +137,35 @@ END $$;
 -- 11. Cancela algunas reservas para poblar el log de cancelaciones
 UPDATE BOOKINGS SET status = 'cancelled' WHERE id_booking IN (5, 15, 25, 35, 45, 55, 65, 75, 85, 95);
 
-INSERT INTO INVOICES (id_booking, issue_date, total_amount)
-SELECT 
-    b.id_booking,
-    CURRENT_DATE,
-    SUM(c.price_per_hour) AS total_amount
-FROM BOOKINGS b
-JOIN BOOKING_DETAILS bd ON b.id_booking = bd.id_booking
-JOIN SCHEDULES s ON bd.id_schedule = s.id_schedule
-JOIN COURTS c ON s.id_court = c.id_court
-GROUP BY b.id_booking;
+-- 12. FACTURACIÓN: Poblar la tabla INVOICES de forma coherente
+DO $$
+DECLARE
+    booking_rec RECORD;
+    total NUMERIC(10,2);
+BEGIN
+    FOR booking_rec IN
+        SELECT b.id_booking, b.booking_date
+        FROM BOOKINGS b
+        LEFT JOIN INVOICES i ON b.id_booking = i.id_booking
+        WHERE i.id_invoice IS NULL
+    LOOP
+        -- Calcular el total sumando el precio por hora de cada cancha por cada horario reservado
+        SELECT COALESCE(SUM(
+            c.price_per_hour * 
+            EXTRACT(EPOCH FROM (s.end_time - s.start_time)) / 3600
+        ), 0)
+        INTO total
+        FROM BOOKING_DETAILS bd
+        JOIN SCHEDULES s ON bd.id_schedule = s.id_schedule
+        JOIN COURTS c ON s.id_court = c.id_court
+        WHERE bd.id_booking = booking_rec.id_booking;
 
--- 12. Consultas de verificación
+        INSERT INTO INVOICES (id_booking, issue_date, total_amount)
+        VALUES (booking_rec.id_booking, booking_rec.booking_date, total);
+    END LOOP;
+END $$;
+
+-- 13. Consultas de verificación
 SELECT COUNT(*) AS total_usuarios FROM USERS;
 SELECT COUNT(*) AS total_reservas FROM BOOKINGS;
 SELECT COUNT(*) AS total_detalles FROM BOOKING_DETAILS;
@@ -199,4 +174,5 @@ SELECT COUNT(*) AS total_logs_cancelacion FROM BOOKING_CANCELLATION_LOG;
 SELECT * FROM USERS LIMIT 5;
 SELECT * FROM BOOKINGS LIMIT 5;
 SELECT * FROM BOOKING_CANCELLATION_LOG LIMIT 5;
+SELECT * FROM INVOICES LIMIT 5;
 
