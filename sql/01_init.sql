@@ -54,9 +54,7 @@ CREATE TABLE BOOKINGS (
     FOREIGN KEY (id_user) REFERENCES USERS(id_user)
 );
 
--- =======================
--- 7. BOOKING DETAILS (Cross table)
--- =======================
+
 CREATE TABLE BOOKING_DETAILS (
     id_booking INT NOT NULL,
     id_schedule INT NOT NULL,
