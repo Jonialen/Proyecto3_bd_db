@@ -129,35 +129,40 @@ DO $$
 DECLARE
     booking_id INT;
     schedule_ids INT[];
-    i INT;
+    i INT := 1;
     j INT;
     num_schedules INT;
+    total_schedules INT;
 BEGIN
-    -- Obtener todos los ids de SCHEDULES en una lista
+    -- Obtener todos los ids de SCHEDULES en una lista aleatoria
     SELECT ARRAY(SELECT id_schedule FROM SCHEDULES ORDER BY RANDOM()) INTO schedule_ids;
+    total_schedules := array_length(schedule_ids, 1);
 
-    i := 1;
-
+    -- Para cada reserva, asignar entre 1 y 3 horarios, sin repetir ningún horario
     FOR booking_id IN SELECT id_booking FROM BOOKINGS LOOP
+        -- Si ya no quedan horarios disponibles, salir del ciclo
+        IF i > total_schedules THEN
+            EXIT;
+        END IF;
+
         -- Cantidad aleatoria de horarios por reserva (entre 1 y 3)
         num_schedules := FLOOR(RANDOM() * 3 + 1)::INT;
 
-        FOR j IN 1..num_schedules LOOP
-            -- Evitar overflow de índice
-            IF i > array_length(schedule_ids, 1) THEN
-                i := 1;
-            END IF;
+        -- Si quedan menos horarios disponibles que los que queremos asignar, ajustar
+        IF i + num_schedules - 1 > total_schedules THEN
+            num_schedules := total_schedules - i + 1;
+        END IF;
 
-            -- Insertar la relación entre reserva y horario
+        -- Asignar los horarios disponibles a la reserva
+        FOR j IN 0..(num_schedules - 1) LOOP
             INSERT INTO BOOKING_DETAILS (id_booking, id_schedule)
-            VALUES (booking_id, schedule_ids[i]);
-
-            i := i + 1;
+            VALUES (booking_id, schedule_ids[i + j]);
         END LOOP;
+
+        -- Avanzar el índice para los próximos horarios
+        i := i + num_schedules;
     END LOOP;
 END $$;
-
-
 -- 10. BOOKING_PROMOTIONS (asigna promociones a algunas reservas)
 DO $$
 DECLARE
