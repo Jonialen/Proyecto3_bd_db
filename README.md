@@ -14,6 +14,14 @@ Esta parte del proyecto contiene la configuración y los scripts de inicializaci
 
 Este directorio utiliza Docker y Docker Compose para crear un contenedor con una base de datos PostgreSQL. La base de datos se inicializa con un esquema, triggers y datos de prueba.
 
+La base de datos modela un sistema de reservas para canchas deportivas. Es utilizada por un backend en FastAPI y un frontend en React para generar diferentes reportes y estadísticas.
+
+Incluye:
+
+- Tablas relacionadas a usuarios, canchas, horarios, reservas y promociones.
+- Datos iniciales de ejemplo para pruebas y desarrollo.
+- Compatibilidad total con Docker para facilitar el despliegue.
+
 ## Tecnologías
 
 - PostgreSQL 17
